@@ -1,16 +1,13 @@
 import warnings
 import numpy
 import scipy.linalg
-
-from .. import utils
+import numbers
 
 __all__ = [
     "MatrixFunction",
     "MatrixExponential",
     "MatrixSin",
     "MatrixCos",
-    "MatrixRationalFunction",
-    "MatrixPolynomial",
     "MatrixInverse"
 ]
 
@@ -20,39 +17,50 @@ class MatrixFunction:
     def __init__(
             self,
             f,
-            display_error_estimate=False,  # Block diagonal non-sparse? Banded?
+            f_description=None,
+            display_error_estimate=False
     ):
         """DOCSTRING?"""
-        self.f = f
+        self.f = numpy.vectorize(f)
+        self.f_description = f_description
         self.display_error_estimate = display_error_estimate
+
+    def evaluate_hermitian(self, A, is_positive_semidefinite=False):
+        """From scipy notes*** NEED TO CITE"""
+        w, v = scipy.linalg.eigh(A, check_finite=False)  # Assume finite
+        if is_positive_semidefinite:
+            w = numpy.maximum(w, 0)
+        w = self.f(w)
+        return (v * w) @ v.conj().T
+
+    def evaluate_general(self, A):
+        return scipy.linalg.funm(A,
+                                 self.f,
+                                 not self.display_error_estimate)
+
+    def get_error_estimate(self, A):
+        # Method for error estimation for general method
+        # TODO
+        pass
 
     def __call__(self, A, is_hermitian=False, is_positive_semidefinite=False):
         """Compute matrix function of current matrix with defined method"""
-        def _evaluate_hermitian(A):
-            """From scipy notes*** NEED TO CITE"""
-            w, v = scipy.linalg.eigh(A, check_finite=False)  # Assume finite
-            if is_positive_semidefinite:
-                w = numpy.maximum(w, 0)
-            w = self.f(w)
-            return v @ w @ v.conj().T
-
-        def _evaluate_general(A):
-            return scipy.linalg.funm(A, self.f, self.display_error_estimate)
 
         if is_hermitian:
-            return _evaluate_hermitian(A)
+            return self.evaluate_hermitian(A, is_positive_semidefinite)
         else:
-            warnings.warn("Using scipy.linalg.funm may yield poor results"
-                          + " if matrix has repeated or similar eigenvalues")
-            return _evaluate_general(A)
+            return self.evaluate_general(A)
 
     def __str__(self):
-        return str(type(self)) + ": " + str(self.f)
+        return self.__repr__()
 
     def __repr__(self):
-        return 
+        if self.f_description:
+            return str(type(self).__name__) + "({})".format(self.f_description)
+        else:
+            return str(type(self).__name__) + "({})".format(str(self.f))
 
-    def __add__(self):
+    def __add__(self, g):
         pass
 
     def __sub__(self):
@@ -65,11 +73,14 @@ class MatrixFunction:
 class MatrixExponential(MatrixFunction):
     pass
 
+
 class MatrixSin(MatrixFunction):
     pass
+
 
 class MatrixCos(MatrixFunction):
     pass
 
-class MatrixInverse(MatrixRationalFunction):
+
+class MatrixInverse(MatrixFunction):
     pass
