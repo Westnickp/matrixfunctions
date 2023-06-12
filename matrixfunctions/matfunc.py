@@ -19,47 +19,38 @@ class MatrixFunction:
     """DOCSTRING?"""
     def __init__(
             self,
-            A,
             f,
-            fA=None,
-            sparsity_pattern=None,  # Block diagonal non-sparse? Banded?
-            important_entries=None,  # Only care about diagonal entries? f(A)v? 
-            normal=False,
-            self_adjoint=False,
-            positive_semidefinite=False
+            display_error_estimate=False,  # Block diagonal non-sparse? Banded?
     ):
         """DOCSTRING?"""
-        self.A = A
         self.f = f
-        self.sparsity_pattern = sparsity_pattern
-        self.important_entries = important_entries
-        self.normal = False
-        self.self_adjoint = False
-        self.positive_semidefinite = False
-        self.fA = fA if fA is not None else self._computef()
+        self.display_error_estimate = display_error_estimate
 
-    def _computef(self):
+    def __call__(self, A, is_hermitian=False, is_positive_semidefinite=False):
         """Compute matrix function of current matrix with defined method"""
-        # Should do something different if it is normal
+        def _evaluate_hermitian(A):
+            """From scipy notes*** NEED TO CITE"""
+            w, v = scipy.linalg.eigh(A, check_finite=False)  # Assume finite
+            if is_positive_semidefinite:
+                w = numpy.maximum(w, 0)
+            w = self.f(w)
+            return v @ w @ v.conj().T
 
-        # Should maybe do something different if self adjoint
+        def _evaluate_general(A):
+            return scipy.linalg.funm(A, self.f, self.display_error_estimate)
 
-        # Should maybe do something different if positive semi-definite
-        return scipy.linalg.funm(self.A, self.f)  # OTHERS?
-
-    def rank_one_update(self, b, c=None):
-        """Do Krylov subspace update for bb^T or bc^T"""
-        pass
-
-    def low_rank_update(self, B, C=None):
-        """Block matrices?"""
-        pass
+        if is_hermitian:
+            return _evaluate_hermitian(A)
+        else:
+            warnings.warn("Using scipy.linalg.funm may yield poor results"
+                          + " if matrix has repeated or similar eigenvalues")
+            return _evaluate_general(A)
 
     def __str__(self):
-        pass
+        return str(type(self)) + ": " + str(self.f)
 
     def __repr__(self):
-        pass
+        return 
 
     def __add__(self):
         pass
@@ -74,22 +65,10 @@ class MatrixFunction:
 class MatrixExponential(MatrixFunction):
     pass
 
-class MatrixSign(MatrixFunction):
-    pass
-
-class MatrixSqrt(MatrixFunction):
-    pass
-
 class MatrixSin(MatrixFunction):
     pass
 
 class MatrixCos(MatrixFunction):
-    pass
-
-class MatrixRationalFunction(MatrixFunction):
-    pass
-
-class MatrixPolynomial(MatrixRationalFunction):
     pass
 
 class MatrixInverse(MatrixRationalFunction):
