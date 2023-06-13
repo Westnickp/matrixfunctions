@@ -61,7 +61,29 @@ class MatrixFunction:
             return str(type(self).__name__) + "({})".format(str(self.f))
 
     def __add__(self, g):
-        pass
+        if isinstance(g, numbers.Number):
+            def temp_f(x: any) -> any: self.f(x) + g
+            if self.f_description:
+                temp_f_description = self.f_description + " + " + str(g)
+            else:
+                temp_f_description = None
+            return super()(temp_f,
+                           temp_f_description,
+                           self.display_error_estimate)
+        elif isinstance(g, super()):
+            def temp_f(x: any) -> any: self.f(x) + g.f(x)
+            if g.f_description and self.f_description:
+                temp_f_description = self.f_description + g.f_description
+            else:
+                temp_f_description = None
+            d = max(self.display_error_estimate, g.display_error_estimate)
+            return super()(temp_f, temp_f_description, d)
+        else:
+            temp_f = lambda x: self.f(x) + g(x)
+            return super()(temp_f, display_error_estimate=self.display_error_estimate)
+        
+    def __radd__(self, g):
+        return self.__add__(g)
 
     def __sub__(self):
         pass
