@@ -18,12 +18,23 @@ class MatrixFunction:
             self,
             f,
             f_description=None,
-            display_error_estimate=False
+            display_error_estimate=False,
+            implementation="schur-parlett"
     ):
         """DOCSTRING?"""
         self.f = numpy.vectorize(f)
         self.f_description = f_description
         self.display_error_estimate = display_error_estimate
+        self.implementation = implementation
+
+    def evaluate_general(self, A):
+        if self.implementation == "schur-parlett":
+            return scipy.linalg.funm(A,
+                                     self.f,
+                                     not self.display_error_estimate)
+        else:
+            raise NotImplementedError("Unknown evaluation algorithm:"
+                                      + " {}".format(self.implementation))
 
     def evaluate_hermitian(self, A, is_positive_semidefinite=False):
         """From scipy notes*** NEED TO CITE"""
@@ -32,11 +43,6 @@ class MatrixFunction:
             w = numpy.maximum(w, 0)
         w = self.f(w)
         return (v * w) @ v.conj().T
-
-    def evaluate_general(self, A):
-        return scipy.linalg.funm(A,
-                                 self.f,
-                                 not self.display_error_estimate)
 
     def get_error_estimate(self, A):
         # Method for error estimation for general method
@@ -67,21 +73,24 @@ class MatrixFunction:
                 temp_f_description = self.f_description + " + " + str(g)
             else:
                 temp_f_description = None
-            return type(super())(temp_f,
-                                 temp_f_description,
-                                 self.display_error_estimate)
-        elif isinstance(g, type(super())):
+            return MatrixFunction(temp_f,
+                                  temp_f_description,
+                                  self.display_error_estimate)
+        elif isinstance(g, type(self)):
             def temp_f(x: any) -> any: self.f(x) + g.f(x)
             if g.f_description and self.f_description:
-                temp_f_description = self.f_description + g.f_description
+                temp_f_description = (self.f_description + " + "
+                                      + g.f_description)
             else:
                 temp_f_description = None
             d = max(self.display_error_estimate, g.display_error_estimate)
-            return type(super())(temp_f, temp_f_description, d)
+            return MatrixFunction(temp_f, temp_f_description, d)
         else:
-            temp_f = lambda x: self.f(x) + g(x)
-            return type(super())(temp_f, display_error_estimate=self.display_error_estimate)
-        
+            def temp_f(x: any) -> any: return self.f(x) + g(x)
+            d = self.display_error_estimate
+            return MatrixFunction(temp_f,
+                                  display_error_estimate=d)
+
     def __radd__(self, g):
         return self.__add__(g)
 
@@ -91,18 +100,48 @@ class MatrixFunction:
     def __mult__(self):
         pass
 
+    def __div__(self):
+        pass
 
 class MatrixExponential(MatrixFunction):
-    pass
+    f_description = "numpy.exp(x)"
+    f = numpy.exp
+
+    def __init__(self,
+                 display_error_estimate=False,
+                 implementation="scale-and-square"):
+        self.display_error_estimate = display_error_estimate
+        self.implementation = implementation
+
+    def evaluate_general(self, A):
+        if self.implementation == "scale-and-square":
+            return scipy.linalg.expm(A)
+        else:
+            raise NotImplementedError("Unknown evaluation algorithm:"
+                                      + " {}".format(self.implementation))
+
+    def evaluate_hermitian(self, A, is_positive_semidefinite=False):
+        """From scipy notes*** NEED TO CITE"""
+        if self.implementation == "scale-and-square":
+            return scipy.linalg.expm(A)
+        elif self.implementation == "diagonal":
+            super().evaluate_hermitian(A, is_positive_semidefinite)
+        else:
+            raise NotImplementedError("Unknown evaluation algorithm:"
+                                      + " {}".format(self.implementation))
+
 
 
 class MatrixSin(MatrixFunction):
+    f_description = "numpy.sin(x)"
     pass
 
 
 class MatrixCos(MatrixFunction):
+    f_description = "numpy.cos(x)"
     pass
 
 
 class MatrixInverse(MatrixFunction):
+    f_description = "1/x"
     pass
